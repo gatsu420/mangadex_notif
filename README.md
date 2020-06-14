@@ -22,6 +22,21 @@ The script relies on two tables; one for storing master data (manga_id and their
 
 You need to manually input manga_id and title to master table. To retrieve manga_id, use integer suffix from https://mangadex.org/title/XXXXX.
 
+## Placeholder (not in order of occurences)
+1. `MD_MANGA`: directory to master table in `database_name.table_name` format
+
+2. `MD_RECENT_UPDATE`: directory to recent manga updates table in `database_name.table_name` format
+
+3. `HAKASETEST_HOST`: database address
+
+4. `HAKASETEST_USER`: database username
+
+5. `HAKASETEST_PASS`: database password
+
+6. `TWILIO_SID`: SID for your Twilio account
+
+7. `TWILIO_TOKEN`: auth token for your Twilio account
+
 ## License 
 Copyright (C) 2020 Ranggalawe Istifajar
 
