@@ -126,5 +126,3 @@ except:
 if manga_title_update != []:
     twilio_cli = Client(twilio_sid, twilio_token)
     twilio_cli.messages.create(body=notif_msg, from_=twilio_phone_source, to=twilio_phone_target)
-
-print(notif_msg)
