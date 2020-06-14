@@ -37,7 +37,7 @@ try:
     manga_id = cur.fetchall()
     conn.close()
 except:
-    print('fail to read mangadex_notif.py_manga')
+    print('fail to read {MD_MANGA}'.format(MD_MANGA=os.environ['MD_MANGA']))
 
 for i in range(len(manga_id)):
     gb_chapter_timestamp = [] #flush tuple for every manga_id
@@ -72,7 +72,7 @@ try:
     initial_update = cur.fetchall()
     conn.close()
 except:
-    print('fail to read mangadex_notif.py_manga')
+    print('fail to read {MD_RECENT_UPDATE}'.format(MD_RECENT_UPDATE=os.environ['MD_RECENT_UPDATE']))
 
 for j in range(len(initial_update)):
     initial_chapter_id.append(initial_update[j][1])
@@ -94,7 +94,7 @@ try:
     master = cur.fetchall()
     conn.close()
 except:
-    print('fail to read mangadex_notif.py_manga')
+    print('fail to read {MD_MANGA}'.format(MD_MANGA=os.environ['MD_MANGA']))
 
 for m in range(len(master)):
     master_manga_id.append(master[m][0])
@@ -121,7 +121,7 @@ try:
     conn.commit()
     conn.close()
 except:
-    print('fail to write mangadex_notif.py_recent_update')
+    print('fail to write {MD_RECENT_UPDATE}'.format(MD_RECENT_UPDATE=os.environ['MD_RECENT_UPDATE']))
 
 if manga_title_update != []:
     twilio_cli = Client(twilio_sid, twilio_token)
