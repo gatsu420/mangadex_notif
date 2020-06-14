@@ -3,6 +3,7 @@ import os
 import requests
 from datetime import datetime
 import time
+from twilio.rest import Client
 
 tidy_manga_id = []
 tidy_initial_update = []
@@ -11,9 +12,21 @@ recent_chapter_id = []
 recent_chapter_num = []
 recent_chapter_timestamp = []
 chapter_list = []
+initial_manga_id = []
+initial_chapter_id = []
+master_manga_id = []
+master_manga_title = []
+manga_id_update = []
+chapter_id_update = []
+manga_title_update = []
 
 api_prefix = 'https://mangadex.org/api/?id='
 api_suffix = '&type=manga'
+
+twilio_sid = os.environ['TWILIO_SID']
+twilio_token = os.environ['TWILIO_TOKEN']
+twilio_phone_source = os.environ['TWILIO_PHONE_SOURCE']
+twilio_phone_target = os.environ['TWILIO_PHONE_TARGET']
 
 try:
     conn = pymysql.connect(host = os.environ['HAKASETEST_HOST'], 
@@ -55,12 +68,63 @@ try:
                             user = os.environ['HAKASETEST_USER'],
                             password = os.environ['HAKASETEST_PASS'])
     cur = conn.cursor()
+    cur.execute('select manga_id, chapter_id from {MD_RECENT_UPDATE}'.format(MD_RECENT_UPDATE=os.environ['MD_RECENT_UPDATE']))
+    initial_update = cur.fetchall()
+    conn.close()
+except:
+    print('fail to read mangadex_notif.py_manga')
+
+for j in range(len(initial_update)):
+    initial_chapter_id.append(initial_update[j][1])
+
+for k in range(len(recent_update)):
+    if recent_update[k][1] not in initial_chapter_id:
+        chapter_id_update.append(recent_update[k][1])
+
+for l in range(len(chapter_id_update)):
+    if chapter_id_update[l] in recent_chapter_id:
+        manga_id_update.append(recent_update[recent_chapter_id.index(chapter_id_update[l])][0])
+
+try:
+    conn = pymysql.connect(host = os.environ['HAKASETEST_HOST'], 
+                            user = os.environ['HAKASETEST_USER'],
+                            password = os.environ['HAKASETEST_PASS'])
+    cur = conn.cursor()
+    cur.execute('select * from {MD_MANGA}'.format(MD_MANGA=os.environ['MD_MANGA']))
+    master = cur.fetchall()
+    conn.close()
+except:
+    print('fail to read mangadex_notif.py_manga')
+
+for m in range(len(master)):
+    master_manga_id.append(master[m][0])
+    master_manga_title.append(master[m][1])
+
+for n in range(len(manga_id_update)):
+    if int(manga_id_update[n]) in master_manga_id:
+        manga_title_update.append(master_manga_title[master_manga_id.index(int(manga_id_update[n]))])
+
+notif_msg = 'manga terupdate = {MANGA_UPDATE}, with total updated chapter={CHAPTER_UPDATE}'.format(MANGA_UPDATE=str(manga_title_update)[1:-1], CHAPTER_UPDATE=len(chapter_id_update))
+
+try:
+    conn = pymysql.connect(host = os.environ['HAKASETEST_HOST'], 
+                            user = os.environ['HAKASETEST_USER'],
+                            password = os.environ['HAKASETEST_PASS'])
+    cur = conn.cursor()
     sql = '''insert into {MD_RECENT_UPDATE} (manga_id, chapter_id, chapter_num, chapter_timestamp, updated_time) values (%s, %s, %s, %s, %s)
-                on duplicate key update chapter_id=values(chapter_id), 
+                on duplicate key update
+                    chapter_id=values(chapter_id), 
                     chapter_num=values(chapter_num), 
-                    chapter_timestamp=values(chapter_timestamp)'''.format(MD_RECENT_UPDATE=os.environ['MD_RECENT_UPDATE'])
+                    chapter_timestamp=values(chapter_timestamp),
+                    updated_time=values(updated_time)'''.format(MD_RECENT_UPDATE=os.environ['MD_RECENT_UPDATE'])
     cur.executemany(sql, recent_update)
     conn.commit()
     conn.close()
 except:
     print('fail to write mangadex_notif.py_recent_update')
+
+if manga_title_update != []:
+    twilio_cli = Client(twilio_sid, twilio_token)
+    twilio_cli.messages.create(body=notif_msg, from_=twilio_phone_source, to=twilio_phone_target)
+
+print(notif_msg)
