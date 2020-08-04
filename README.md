@@ -37,6 +37,10 @@ You need to manually input manga_id and title to master table. To retrieve manga
 
 7. `TWILIO_TOKEN`: auth token for your Twilio account
 
+8. `TWILIO_PHONE_SOURCE`: your Twilio phone number
+
+9. `TWILIO_PHONE_TARGET`: phone number which will receive the SMS
+
 ## License 
 Copyright (C) 2020 Ranggalawe Istifajar
 
