@@ -1,9 +1,9 @@
-import pymysql 
-import os
+import pymysql
 import requests
 from datetime import datetime
 import time
 from twilio.rest import Client
+from airflow.models import Variable #replacement for os package on airflow environment
 
 tidy_manga_id = []
 tidy_initial_update = []
@@ -23,22 +23,22 @@ manga_title_update = []
 api_prefix = 'https://mangadex.org/api/?id='
 api_suffix = '&type=manga'
 
-twilio_sid = os.environ['TWILIO_SID']
-twilio_token = os.environ['TWILIO_TOKEN']
-twilio_phone_source = os.environ['TWILIO_PHONE_SOURCE']
-twilio_phone_target = os.environ['TWILIO_PHONE_TARGET']
+twilio_sid = Variable.get('TWILIO_SID')
+twilio_token = Variable.get('TWILIO_TOKEN')
+twilio_phone_source = Variable.get('TWILIO_PHONE_SOURCE')
+twilio_phone_target = Variable.get('TWILIO_PHONE_TARGET')
 
 # scrape details for every manga_id in master
 try:
-    conn = pymysql.connect(host = os.environ['HAKASETEST_HOST'], 
-                            user = os.environ['HAKASETEST_USER'],
-                            password = os.environ['HAKASETEST_PASS'])
+    conn = pymysql.connect(host = Variable.get('HAKASETEST_HOST'), 
+                            user = Variable.get('HAKASETEST_USER'),
+                            password = Variable.get('HAKASETEST_PASS'))
     cur = conn.cursor()
-    cur.execute('select manga_id from {MD_MANGA}'.format(MD_MANGA=os.environ['MD_MANGA']))
+    cur.execute('select manga_id from {MD_MANGA}'.format(MD_MANGA=Variable.get('MD_MANGA')))
     manga_id = cur.fetchall()
     conn.close()
 except:
-    print('fail to read {MD_MANGA}'.format(MD_MANGA=os.environ['MD_MANGA']))
+    print('fail to read {MD_MANGA}'.format(MD_MANGA=Variable.get('MD_MANGA')))
 
 for i in range(len(manga_id)):
     gb_chapter_timestamp = [] #flush tuple for every manga_id
@@ -67,15 +67,15 @@ recent_update = list(zip(tidy_manga_id, recent_chapter_id, recent_chapter_num, r
 # recheck whether recent update offsets with existing update
 
 try:
-    conn = pymysql.connect(host = os.environ['HAKASETEST_HOST'], 
-                            user = os.environ['HAKASETEST_USER'],
-                            password = os.environ['HAKASETEST_PASS'])
+    conn = pymysql.connect(host = Variable.get('HAKASETEST_HOST'), 
+                            user = Variable.get('HAKASETEST_USER'),
+                            password = Variable.get('HAKASETEST_PASS'))
     cur = conn.cursor()
-    cur.execute('select manga_id, chapter_id from {MD_RECENT_UPDATE}'.format(MD_RECENT_UPDATE=os.environ['MD_RECENT_UPDATE']))
+    cur.execute('select manga_id, chapter_id from {MD_RECENT_UPDATE}'.format(MD_RECENT_UPDATE=Variable.get('MD_RECENT_UPDATE')))
     initial_update = cur.fetchall()
     conn.close()
 except:
-    print('fail to read {MD_RECENT_UPDATE}'.format(MD_RECENT_UPDATE=os.environ['MD_RECENT_UPDATE']))
+    print('fail to read {MD_RECENT_UPDATE}'.format(MD_RECENT_UPDATE=Variable.get('MD_RECENT_UPDATE')))
 
 for j in range(len(initial_update)):
     initial_chapter_id.append(initial_update[j][1])
@@ -89,15 +89,15 @@ for l in range(len(chapter_id_update)):
         manga_id_update.append(recent_update[recent_chapter_id.index(chapter_id_update[l])][0])
 
 try:
-    conn = pymysql.connect(host = os.environ['HAKASETEST_HOST'], 
-                            user = os.environ['HAKASETEST_USER'],
-                            password = os.environ['HAKASETEST_PASS'])
+    conn = pymysql.connect(host = Variable.get('HAKASETEST_HOST'), 
+                            user = Variable.get('HAKASETEST_USER'),
+                            password = Variable.get('HAKASETEST_PASS'))
     cur = conn.cursor()
-    cur.execute('select * from {MD_MANGA}'.format(MD_MANGA=os.environ['MD_MANGA']))
+    cur.execute('select * from {MD_MANGA}'.format(MD_MANGA=Variable.get('MD_MANGA')))
     master = cur.fetchall()
     conn.close()
 except:
-    print('fail to read {MD_MANGA}'.format(MD_MANGA=os.environ['MD_MANGA']))
+    print('fail to read {MD_MANGA}'.format(MD_MANGA=Variable.get('MD_MANGA')))
 
 for m in range(len(master)):
     master_manga_id.append(master[m][0])
@@ -110,16 +110,16 @@ for n in range(len(manga_id_update)):
 notif_msg = 'manga terupdate = {MANGA_UPDATE}, with total updated chapter={CHAPTER_UPDATE}'.format(MANGA_UPDATE=str(manga_title_update)[1:-1], CHAPTER_UPDATE=len(chapter_id_update))
 
 try:
-    conn = pymysql.connect(host = os.environ['HAKASETEST_HOST'], 
-                            user = os.environ['HAKASETEST_USER'],
-                            password = os.environ['HAKASETEST_PASS'])
+    conn = pymysql.connect(host = Variable.get('HAKASETEST_HOST'), 
+                            user = Variable.get('HAKASETEST_USER'),
+                            password = Variable.get('HAKASETEST_PASS'))
     cur = conn.cursor()
     sql = '''insert into {MD_RECENT_UPDATE} (manga_id, chapter_id, chapter_num, chapter_timestamp, updated_time) values (%s, %s, %s, %s, %s)
                 on duplicate key update
                     chapter_id=values(chapter_id), 
                     chapter_num=values(chapter_num), 
                     chapter_timestamp=values(chapter_timestamp),
-                    updated_time=values(updated_time)'''.format(MD_RECENT_UPDATE=os.environ['MD_RECENT_UPDATE'])
+                    updated_time=values(updated_time)'''.format(MD_RECENT_UPDATE=Variable.get('MD_RECENT_UPDATE'))
     cur.executemany(sql, recent_update)
     conn.commit()
     conn.close()
@@ -128,5 +128,5 @@ try:
         twilio_cli = Client(twilio_sid, twilio_token)
         twilio_cli.messages.create(body=notif_msg, from_=twilio_phone_source, to=twilio_phone_target)
 except:
-    print('fail to write {MD_RECENT_UPDATE}'.format(MD_RECENT_UPDATE=os.environ['MD_RECENT_UPDATE']))
+    print('fail to write {MD_RECENT_UPDATE}'.format(MD_RECENT_UPDATE=Variable.get('MD_RECENT_UPDATE')))
     print('fail to send SMS')
