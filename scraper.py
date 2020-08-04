@@ -28,6 +28,7 @@ twilio_token = os.environ['TWILIO_TOKEN']
 twilio_phone_source = os.environ['TWILIO_PHONE_SOURCE']
 twilio_phone_target = os.environ['TWILIO_PHONE_TARGET']
 
+# scrape details for every manga_id in master
 try:
     conn = pymysql.connect(host = os.environ['HAKASETEST_HOST'], 
                             user = os.environ['HAKASETEST_USER'],
@@ -63,6 +64,8 @@ updated_time = [str(datetime.now())] * len(recent_chapter_id)
 
 recent_update = list(zip(tidy_manga_id, recent_chapter_id, recent_chapter_num, recent_chapter_timestamp, updated_time))
 
+# recheck whether recent update offsets with existing update
+
 try:
     conn = pymysql.connect(host = os.environ['HAKASETEST_HOST'], 
                             user = os.environ['HAKASETEST_USER'],
@@ -78,7 +81,7 @@ for j in range(len(initial_update)):
     initial_chapter_id.append(initial_update[j][1])
 
 for k in range(len(recent_update)):
-    if recent_update[k][1] not in initial_chapter_id:
+    if int(recent_update[k][1]) not in initial_chapter_id:
         chapter_id_update.append(recent_update[k][1])
 
 for l in range(len(chapter_id_update)):
@@ -120,9 +123,10 @@ try:
     cur.executemany(sql, recent_update)
     conn.commit()
     conn.close()
+
+    if manga_title_update != []:
+        twilio_cli = Client(twilio_sid, twilio_token)
+        twilio_cli.messages.create(body=notif_msg, from_=twilio_phone_source, to=twilio_phone_target)
 except:
     print('fail to write {MD_RECENT_UPDATE}'.format(MD_RECENT_UPDATE=os.environ['MD_RECENT_UPDATE']))
-
-if manga_title_update != []:
-    twilio_cli = Client(twilio_sid, twilio_token)
-    twilio_cli.messages.create(body=notif_msg, from_=twilio_phone_source, to=twilio_phone_target)
+    print('fail to send SMS')
