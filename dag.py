@@ -19,7 +19,8 @@ dag = DAG(
     default_args=default_args,
     description='DAG for mangadex_notif project',
     schedule_interval='0 */1 * * *',
-    catchup=False
+    # to prevent undesired dagrun catchup which would happen if pausing and editing DAG
+    catchup=False 
 )
 
 t1 = BashOperator(
