@@ -7,20 +7,30 @@ Sends you an SMS whenever a new chapter (english translation) is uploaded on Man
 3. Send you SMS via Twilio service whenever a new chapter is detected
 
 ## Scraped data
-1. manga_id (example: https://mangadex.org/title/28804)
-2. chapter_id (example: https://mangadex.org/chapter/814044)
+1. manga_id (example: integer suffix from https://mangadex.org/title/28804)
+2. chapter_id (example: integer suffix from https://mangadex.org/chapter/814044)
 3. chapter number (from previous chapter_id, the chapter number would be 14)
 4. upload timestamp
 
 ## Infra needed
-1. Crontab
+1. Airflow 
 2. MariaDB
 3. Twilio account (free trial available)
 
 ## DB requirement
-The script relies on two tables; one for storing master data (manga_id and their titles), and another for storing recent manga updates (all fields in "Scraped data" plus scrape timestamp).
+The script relies on two tables; `manga` for storing master data (manga_id and their titles), and `recent_updates` for storing recent manga updates (all fields in "Scraped data" plus scrape timestamp). The detail goes as follows:
+1. `manga`:
+    1. `manga_id` (PK)
+    2. `title`
 
-You need to manually input manga_id and title to master table. To retrieve manga_id, use integer suffix from https://mangadex.org/title/XXXXX.
+2. `recent_updates`
+    1. `manga_id` (PK)
+    2. `chapter_id`
+    3. `chapter_num`
+    4. `chapter_timestamp`
+    5. `updated_time` (time a record is updated)
+
+You need to manually input manga_id and title to `manga` table. To retrieve manga_id, use integer suffix from https://mangadex.org/title/XXXXX.
 
 ## Placeholder (not in order of occurences)
 1. `MD_MANGA`: directory to master table in `database_name.table_name` format
