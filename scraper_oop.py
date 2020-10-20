@@ -34,11 +34,22 @@ class DBConnector:
 
         return cur.fetchall()
 
+    def get_master(self):
+        conn = pymysql.connect(host = Variable.get('HAKASETEST_HOST'), 
+                            user = Variable.get('HAKASETEST_USER'),
+                            password = Variable.get('HAKASETEST_PASS'))
+        cur = conn.cursor()
+        cur.execute(f'select * from {self.md_manga}')
+        conn.close()
+
+        return cur.fetchall()
+
 class RecentChapter:
     def __init__(self):
         self.manga_id = DBConnector().get_manga_id()
         self.api_prefix = 'https://mangadex.org/api/?id='
         self.api_suffix = '&type=manga'
+        self.tidy_manga_id = []
 
     def get_recent_chapter(self):
         chapter_list = []
@@ -53,6 +64,7 @@ class RecentChapter:
             chapter_list.append(list(requests.get(self.api_prefix + str(self.manga_id[i][0]) + self.api_suffix).json()['chapter']))
             chapter = requests.get(self.api_prefix + str(self.manga_id[i][0]) + self.api_suffix).json()['chapter']
             tidy_manga_id.append(str(self.manga_id[i][0]))
+            self.tidy_manga_id += tidy_manga_id
         
             for ii in range(len(chapter_list[i])):
                 if chapter[str(chapter_list[i][ii])]['lang_code'] == 'gb':
@@ -68,12 +80,17 @@ class RecentChapter:
 
         time.sleep(2)
 
-        return recent_chapter_id, recent_chapter_num, recent_chapter_timestamp
+        return recent_chapter_id, recent_chapter_num, recent_chapter_timestamp, tidy_manga_id
 
 class RecentUpdateOffsetChecker:
     def __init__(self):
         self.initial_update = DBConnector().get_initial_update()
-        self.recent_chapter = RecentChapter().get_recent_chapter()
+        self.master = DBConnector().get_master()
+        self.recent_update = RecentChapter().get_recent_chapter()[0]
+        self.tidy_manga_id = RecentChapter().get_recent_chapter()[3]
+        self.initial_chapter_id = []
+        self.manga_id_update = []
+        self.chapter_id_update = []
 
     def get_initial_chapter_id(self):
         initial_chapter_id = []
@@ -81,19 +98,44 @@ class RecentUpdateOffsetChecker:
         for i in range(len(self.initial_update)):
             initial_chapter_id.append(self.initial_update[i][1])
 
+        self.initial_chapter_id += initial_chapter_id
+
         return initial_chapter_id
 
-    def get_chapter_id_update(self, initial_chapter_id):
-        for i in range(len(self.recent_chapter)):
-            if int(self.recent_chapter[i][1]) not in initial_chapter_id:
-                chapter_id_update.append(self.recent_chapter[i][1])
-        
+    def get_chapter_id_update(self):
+        chapter_id_update = []
+
+        for i in range(len(self.recent_update)):
+            if int(self.recent_update[i]) not in self.get_initial_chapter_id():
+                chapter_id_update.append(self.recent_update[i])
+
         return chapter_id_update
 
-aa = DBConnector()
-print(aa.get_manga_id())
-print(aa.host)
-print(len(RecentChapter().manga_id))
-print(RecentChapter().get_recent_chapter())
-print(DBConnector().get_recent_update())
-p
+    def get_manga_id_update(self):
+        manga_id_update = []
+
+        for i in range(len(self.get_chapter_id_update())):
+            if self.get_chapter_id_update()[i] in self.recent_update:
+                manga_id_update.append(self.tidy_manga_id[self.recent_update.index(self.get_chapter_id_update()[i])])
+
+        return manga_id_update
+        
+    def get_master_manga(self):
+        master_manga_id = []
+        master_manga_title = []
+
+        for i in range(len(self.master)):
+            master_manga_id.append()
+
+
+            
+
+# aa = DBConnector()
+# print(aa.get_manga_id())
+# print(aa.host)
+# print(len(RecentChapter().manga_id))
+print(RecentChapter().get_recent_chapter()[0])
+# print(DBConnector().get_initial_update())
+# print(RecentUpdateOffsetChecker().get_initial_chapter_id())
+print(RecentUpdateOffsetChecker().recent_update)
+print(RecentUpdateOffsetChecker().get_manga_id_update())
