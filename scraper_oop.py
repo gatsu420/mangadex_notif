@@ -35,14 +35,37 @@ class DBConnector:
         return cur.fetchall()
 
     def get_master(self):
-        conn = pymysql.connect(host = Variable.get('HAKASETEST_HOST'), 
-                            user = Variable.get('HAKASETEST_USER'),
-                            password = Variable.get('HAKASETEST_PASS'))
+        conn = pymysql.connect(host = self.host, 
+                                user = self.user,
+                                password = self.password)
         cur = conn.cursor()
         cur.execute(f'select * from {self.md_manga}')
         conn.close()
 
         return cur.fetchall()
+
+    def insert_recent_update(self):
+        recent_update = list(zip(
+            RecentChapter().get_recent_chapter()[3],
+            RecentChapter().get_recent_chapter()[0],
+            RecentChapter().get_recent_chapter()[1],
+            RecentChapter().get_recent_chapter()[2],
+            RecentChapter().get_recent_chapter()[4]
+            ))
+
+        conn = pymysql.connect(host = self.host, 
+                                user = self.user,
+                                password = self.password)
+        cur = conn.cursor()
+        sql = f'''insert into {self.md_recent_update} (manga_id, chapter_id, chapter_num, chapter_timestamp, updated_time) values (%s, %s, %s, %s, %s)
+                    on duplicate key update
+                        chapter_id=values(chapter_id), 
+                        chapter_num=values(chapter_num), 
+                        chapter_timestamp=values(chapter_timestamp),
+                        updated_time=values(updated_time)'''
+        cur.executemany(sql, recent_update)
+        conn.commit()
+        conn.close()
 
 class RecentChapter:
     def __init__(self):
@@ -80,7 +103,7 @@ class RecentChapter:
 
         time.sleep(2)
 
-        return recent_chapter_id, recent_chapter_num, recent_chapter_timestamp, tidy_manga_id
+        return recent_chapter_id, recent_chapter_num, recent_chapter_timestamp, tidy_manga_id, [str(datetime.now())] * len(recent_chapter_id)
 
 class RecentUpdateOffsetChecker:
     def __init__(self):
@@ -125,17 +148,47 @@ class RecentUpdateOffsetChecker:
         master_manga_title = []
 
         for i in range(len(self.master)):
-            master_manga_id.append()
+            master_manga_id.append(self.master[i][0])
+            master_manga_title.append(self.master[i][1])
 
+        return master_manga_id, master_manga_title
 
-            
+    def get_manga_title_update(self):
+        manga_title_update = []
+
+        for i in range(len(self.get_manga_id_update())):
+            if int(self.get_manga_id_update()[i]) in self.get_master_manga()[0]:
+                manga_title_update.append(self.get_master_manga()[1][self.get_master_manga()[0].index(int(self.get_manga_id_update()[i]))])
+
+        return manga_title_update
+
+class TwilioService:
+    def __init__(self):
+        self.twilio_sid = os.environ['TWILIO_SID']
+        self.twilio_token = os.environ['TWILIO_TOKEN']
+        self.twilio_phone_source = os.environ['TWILIO_PHONE_SOURCE']
+        self.twilio_phone_target = '+6285706106941'
+
+    def send_notif(self):
+        notif_msg = 'updated manga = {MANGA_UPDATE}, with total updated chapter={CHAPTER_UPDATE}'.format(
+                MANGA_UPDATE=str(RecentUpdateOffsetChecker().get_manga_title_update())[1:-1], 
+                CHAPTER_UPDATE=len(RecentUpdateOffsetChecker().get_chapter_id_update())
+                )
+
+        if RecentUpdateOffsetChecker().get_manga_title_update() != []:
+            twilio_cli = Client(self.twilio_sid, self.twilio_token)
+            twilio_cli.messages.create(body=notif_msg, from_=self.twilio_phone_source, to=self.twilio_phone_target)
 
 # aa = DBConnector()
 # print(aa.get_manga_id())
 # print(aa.host)
 # print(len(RecentChapter().manga_id))
 print(RecentChapter().get_recent_chapter()[0])
+print(RecentChapter().get_recent_chapter())
 # print(DBConnector().get_initial_update())
 # print(RecentUpdateOffsetChecker().get_initial_chapter_id())
-print(RecentUpdateOffsetChecker().recent_update)
-print(RecentUpdateOffsetChecker().get_manga_id_update())
+# print(RecentUpdateOffsetChecker().recent_update)
+# print(RecentUpdateOffsetChecker().get_manga_id_update())
+# print(RecentUpdateOffsetChecker().get_manga_title_update())
+print(DBConnector().insert_recent_update())
+print(TwilioService().send_notif())
